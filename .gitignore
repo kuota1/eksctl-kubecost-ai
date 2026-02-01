@@ -17,3 +17,6 @@ venv/
 # Docker
 *.log
 bash.docx
+*.docx
+~$*.docx
+
