@@ -1,0 +1,50 @@
+FinOps es una práctica que ayuda a las organizaciones a entender, controlar y optimizar los costos de la nube, alineando el gasto con el valor del negocio mediante colaboración entre ingeniería, finanzas y áreas de negocio.
+________________________________________
+Dominios principales de FinOps
+1.	Entender el uso y costo de la nube
+	Obtener visibilidad detallada del gasto en la nube.
+	Analizar consumo por servicio, equipo o aplicación.
+	Detectar anomalías y gastos inesperados.
+2.	Optimizar el uso y costo
+	Ajustar recursos (right-sizing).
+	Eliminar recursos no utilizados.
+	Usar descuentos como Reserved Instances o Savings Plans.
+3.	Cuantificar el valor del negocio
+	Relacionar costos con aplicaciones, equipos y resultados.
+	Evaluar si el gasto genera valor real.
+	Apoyar decisiones técnicas con datos financieros.
+________________________________________
+Capacidades clave de FinOps
+•	Cost Allocation: Asignar costos a equipos o aplicaciones mediante etiquetas.
+•	Showback y Chargeback:
+	Showback: mostrar costos sin cobrar.
+	Chargeback: cobrar costos reales a cada área.
+•	Budgeting & Forecasting: Definir presupuestos y prever gastos futuros.
+•	Anomaly Detection: Detectar picos de gasto inusuales.
+•	Workload Optimization: Optimizar recursos según uso real.
+•	Rate Optimization: Usar descuentos y modelos de precios eficientes.
+•	Cloud Policy & Governance: Definir reglas para el uso responsable de la nube.
+________________________________________
+Fases de madurez FinOps
+1.	Crawl
+	Visibilidad limitada.
+	Procesos manuales.
+	Poca cultura de costos.
+	Objetivo: obtener datos básicos y quick wins.
+2.	Walk
+	Mejor asignación de costos.
+	Mayor colaboración entre equipos.
+	Uso de herramientas FinOps.
+	Objetivo: procesos más consistentes y automatizados.
+3.	Run
+	Optimización continua.
+	Gobernanza clara.
+	Decisiones basadas en datos en tiempo real.
+	Objetivo: maximizar valor y eficiencia.
+________________________________________
+Importancia cultural de FinOps
+•	FinOps no es solo una herramienta, es una cultura.
+•	Ingenieros deben entender el impacto financiero de sus decisiones.
+•	Finanzas deben comprender cómo funciona la nube.
+•	La transparencia impulsa responsabilidad y optimización.
+

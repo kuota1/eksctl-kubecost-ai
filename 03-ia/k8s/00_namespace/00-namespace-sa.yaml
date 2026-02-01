@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-rag
+  labels:
+    app.kubernetes.io/name: ai-rag
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-rag-sa
+  namespace: ai-rag
+  annotations:
+    # IRSA: aquí va el IAM Role ARN (lo pondremos cuando lo creemos con eksctl)
+    eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/ai-rag-bedrock-role

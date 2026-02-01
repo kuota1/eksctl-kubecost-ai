@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: chroma-ingest
+  namespace: ai-rag
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: chroma-ingest
+    spec:
+      restartPolicy: Never
+      serviceAccountName: ai-rag-sa
+      containers:
+        - name: ingest
+          image: <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/chroma-ingest:latest
+          imagePullPolicy: Always
+          env:
+            - name: AWS_REGION
+              value: us-east-1
+            - name: CHROMA_HOST
+              value: chroma
+            - name: CHROMA_PORT
+              value: "8000"
+            - name: CHROMA_COLLECTION
+              value: info_ia_generativa
+            - name: BEDROCK_EMBED_MODEL
+              value: amazon.titan-embed-text-v2:0
+          # Si tu script se llama diferente, ajusta el command
+          command: ["python", "/app/subir_documentos_chroma.py"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

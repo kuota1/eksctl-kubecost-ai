@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Env / secrets
+.env
+*-secrets.yaml
+05-secrets.yaml
+
+# OS
+.DS_Store
+
+# Docker
+*.log

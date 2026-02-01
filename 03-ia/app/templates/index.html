@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat IA Generativa</title>
+  <style>
+    body {
+      background-color: #f0f2f5;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .chat-container {
+      background-color: #fff;
+      width: 90%;
+      max-width: 600px;
+      height: 80vh;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-header {
+      background: #0078ff;
+      color: white;
+      text-align: center;
+      padding: 15px;
+      font-size: 1.2em;
+    }
+    .chat-box {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      background: #f9fafc;
+    }
+    form {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+      background: white;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      margin-left: 10px;
+      background-color: #0078ff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">💬 Chat IA Generativa</div>
+    <div class="chat-box">
+      {% for m in historial %}
+        <p><b>Tú:</b> {{ m.pregunta }}</p>
+        <p><b>IA:</b> {{ m.respuesta }}</p>
+      {% endfor %}
+    </div>
+    <form method="POST">
+      <input type="text" name="pregunta" placeholder="Escribe tu mensaje..." required autofocus>
+      <button type="submit">Enviar</button>
+    </form>
+  </div>
+  <script>
+  const chatBox = document.querySelector('.chat-box');
+  chatBox.scrollTop = chatBox.scrollHeight;
+</script>
+</body>
+</html>
