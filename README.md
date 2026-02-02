@@ -112,7 +112,7 @@ This project is **open source**, and contributions are welcome.
 - Optimize performance and cost efficiency
 - Add CI/CD automation
 
-Feel free to open an issue or submit a pull request.
+ Feel free to open an issue or submit a pull request.
 
 ---
 

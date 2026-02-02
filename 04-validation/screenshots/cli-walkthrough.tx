@@ -1,0 +1,162 @@
+1 Cluster creation (EKS + Storage)
+# Create cluster (eksctl)
+cd 01-cluster
+eksctl create cluster -f 01-cluster.yaml
+
+# Validate access
+kubectl get nodes
+
+# StorageClass gp3 (default)
+kubectl apply -f 02-storageclass-gp3.yaml
+kubectl get storageclass
+
+
+Notes
+
+Cluster: eks-kubecost-lab (region: us-east-1)
+
+Nodes ready 
+
+gp3 set as default
+
+2 Kubecost installation
+# Helm repo
+helm repo add kubecost https://kubecost.github.io/kubecost/
+helm repo update
+
+# Install via script
+bash 03-install-kubecost.sh
+
+# Validate
+helm list -A
+kubectl -n kubecost get pods
+kubectl -n kubecost get svc | findstr kubecost-frontend
+
+3 Enable OIDC + EBS CSI Driver (needed for PVCs)
+# Associate OIDC provider (required for IRSA)
+eksctl utils associate-iam-oidc-provider \
+  --cluster eks-kubecost-lab --region us-east-1 --approve
+
+# Create IAM role for EBS CSI driver
+eksctl create iamserviceaccount \
+  --name ebs-csi-controller-sa \
+  --namespace kube-system \
+  --cluster eks-kubecost-lab \
+  --region us-east-1 \
+  --role-name AmazonEKS_EBS_CSI_DriverRole \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve --role-only
+
+ROLE_ARN=$(aws iam get-role --role-name AmazonEKS_EBS_CSI_DriverRole --query 'Role.Arn' --output text)
+
+# Install EBS CSI addon using that role
+eksctl create addon \
+  --name aws-ebs-csi-driver \
+  --cluster eks-kubecost-lab \
+  --region us-east-1 \
+  --service-account-role-arn "$ROLE_ARN" \
+  --force
+
+# Validate EBS CSI pods
+kubectl -n kube-system get pods | grep -i ebs
+
+4 IAM & IRSA for Bedrock (AI namespace)
+# Create policy for Bedrock invoke
+bash 06-iam-create-policy.sh
+
+# Create namespace + service account (IRSA)
+bash 07-serviceaccount-con-IRSA.sh
+
+# Confirm SA is annotated with role
+kubectl -n ai-rag get sa ai-rag-sa -o yaml | grep -A2 eks.amazonaws.com/role-arn
+
+5 Deploy AI components (Chroma + Web + Ingress)
+# Apply manifests
+kubectl apply -f 03-ia/k8s/00_namespace/00-namespace-sa.yaml
+kubectl apply -f 03-ia/k8s/01_chroma/01-chroma-statefulset.yaml
+kubectl apply -f 03-ia/k8s/02_app/02-web-app.yaml
+kubectl apply -f 03-ia/k8s/02_app/03-ingress.yaml
+
+# Validate
+kubectl -n ai-rag get pods -o wide
+kubectl -n ai-rag get svc
+kubectl -n ai-rag get ingress
+kubectl -n ingress-nginx get svc ingress-nginx-controller
+
+6 Build & Push images to ECR (Ingest + Web)
+6.1 Ingest image (documents → Chroma embeddings)
+cd 03-ia/ingest
+
+docker build -t chroma-ingest:latest .
+
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+aws ecr get-login-password --region us-east-1 \
+ | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
+
+aws ecr describe-repositories --repository-names chroma-ingest --region us-east-1 >/dev/null 2>&1 \
+ || aws ecr create-repository --repository-name chroma-ingest --region us-east-1
+
+docker tag chroma-ingest:latest ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/chroma-ingest:latest
+docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/chroma-ingest:latest
+
+6.2 Web image (Flask + Kubecost live query)
+cd 03-ia/app
+
+docker build --no-cache -t ai-chat-web:local .
+
+docker tag ai-chat-web:local ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/ai-chat-web:v10
+docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/ai-chat-web:v10
+
+kubectl -n ai-rag set image deploy/ai-chat-web \
+  web=${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/ai-chat-web:v10
+
+kubectl -n ai-rag rollout status deploy/ai-chat-web
+
+7) Troubleshooting highlights (important)
+7.1 IRSA error
+
+Problem: AccessDenied: Not authorized to perform sts:AssumeRoleWithWebIdentity
+Fix: Role didn’t exist / trust policy wrong → create role + attach bedrock policy + re-annotate SA.
+
+cd 03-ia/k8s/03_job
+
+aws iam create-role \
+  --role-name ai-rag-bedrock-role \
+  --assume-role-policy-document file://trust-policy.json
+
+aws iam put-role-policy \
+  --role-name ai-rag-bedrock-role \
+  --policy-name bedrock-invoke \
+  --policy-document file://bedrock-policy.json
+
+kubectl -n ai-rag annotate sa ai-rag-sa \
+  eks.amazonaws.com/role-arn=arn:aws:iam::${ACCOUNT_ID}:role/ai-rag-bedrock-role \
+  --overwrite
+
+7.2 Confirm IRSA works (debug pod)
+kubectl -n ai-rag run irsa-debug --rm -it \
+  --image=python:3.11-slim \
+  --restart=Never \
+  --overrides='{"spec":{"serviceAccountName":"ai-rag-sa"}}' \
+  -- sh
+
+pip install --no-cache-dir boto3
+python - << 'PY'
+import boto3
+print(boto3.client("sts", region_name="us-east-1").get_caller_identity())
+PY
+exit
+
+7.3 Kubecost API parsing issue
+
+Problem: Kubecost response shape mismatch (list vs dict)
+Fix: Normalize JSON in kubecost_live.py and rebuild image.
+
+8 Final validation (live cost query)
+kubectl -n ai-rag exec -it deploy/ai-chat-web -- \
+python -c "from kubecost_live import get_kubecost_context; print(get_kubecost_context('costo de hoy'))"
+
+
+Example output:
+
+__idle__, kubecost, kube-system, ingress-nginx, ai-rag with costs 
