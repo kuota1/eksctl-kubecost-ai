@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: chroma
+  name: chroma-svc
   namespace: ai-rag
 spec:
   selector:
@@ -17,7 +17,7 @@ metadata:
   name: chroma
   namespace: ai-rag
 spec:
-  serviceName: chroma
+  serviceName: chroma-svc
   replicas: 1
   selector:
     matchLabels:
@@ -27,9 +27,10 @@ spec:
       labels:
         app: chroma
     spec:
+      enableServiceLinks: false
       containers:
         - name: chroma
-          image: chromadb/chroma:latest
+          image: chromadb/chroma:0.5.15
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -38,22 +39,28 @@ spec:
             - name: IS_PERSISTENT
               value: "TRUE"
             - name: PERSIST_DIRECTORY
-              value: /chroma/chroma
+              value: "/chroma/chroma"
           volumeMounts:
             - name: chroma-data
               mountPath: /chroma/chroma
+
+          # Probes robustas (no dependen de endpoints HTTP que cambian)
           readinessProbe:
-            httpGet:
-              path: /api/v1/heartbeat
+            tcpSocket:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
           livenessProbe:
-            httpGet:
-              path: /api/v1/heartbeat
+            tcpSocket:
               port: 8000
             initialDelaySeconds: 30
             periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 6
+
   volumeClaimTemplates:
     - metadata:
         name: chroma-data
@@ -62,4 +69,5 @@ spec:
         resources:
           requests:
             storage: 10Gi
-     
+        # Si tienes StorageClass específico (gp3), descomenta:
+        # storageClassName: gp3

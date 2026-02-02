@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir flask boto3 chromadb gunicorn requests
 
 COPY app.py /app/app.py
 COPY templates /app/templates
+COPY kubecost_live.py /app/kubecost_live.py
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

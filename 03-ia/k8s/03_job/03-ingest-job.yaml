@@ -14,20 +14,21 @@ spec:
       serviceAccountName: ai-rag-sa
       containers:
         - name: ingest
-          image: <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/chroma-ingest:latest
+          image: 084375558336.dkr.ecr.us-east-1.amazonaws.com/chroma-ingest:latest
           imagePullPolicy: Always
           env:
             - name: AWS_REGION
               value: us-east-1
             - name: CHROMA_HOST
-              value: chroma
+              value: chroma-svc
             - name: CHROMA_PORT
               value: "8000"
             - name: CHROMA_COLLECTION
               value: info_ia_generativa
             - name: BEDROCK_EMBED_MODEL
               value: amazon.titan-embed-text-v2:0
-          # Si tu script se llama diferente, ajusta el command
+            - name: DOCUMENTS_DIR
+              value: /app/documentos
           command: ["python", "/app/subir_documentos_chroma.py"]
           resources:
             requests:
@@ -36,3 +37,4 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+

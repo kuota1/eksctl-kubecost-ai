@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REGION="us-east-1"
+ACCOUNT_ID="084375558336"
+REPO="chroma-chat-web"
+IMAGE="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO}:latest"
+
+aws ecr describe-repositories \
+  --repository-names "$REPO" \
+  --region "$REGION" \
+|| aws ecr create-repository \
+  --repository-name "$REPO" \
+  --region "$REGION"
+
+docker build -t "$REPO:latest" ../03-ia/app
+docker tag "$REPO:latest" "$IMAGE"
+docker push "$IMAGE"

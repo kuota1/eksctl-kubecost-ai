@@ -5,11 +5,12 @@ metadata:
   namespace: ai-rag
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
 spec:
   ingressClassName: nginx
   rules:
-    - host: ai-chat.example.com
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
@@ -18,3 +19,4 @@ spec:
                 name: ai-chat-web
                 port:
                   number: 80
+  

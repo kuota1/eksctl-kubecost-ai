@@ -27,49 +27,69 @@ spec:
         app: ai-chat-web
     spec:
       serviceAccountName: ai-rag-sa
+
+      # Blindaje: evita variables auto-inyectadas por Services
+      enableServiceLinks: false
+
+      # Evita CrashLoop: espera a que Chroma esté arriba antes de arrancar Gunicorn/Flask
+      initContainers:
+        - name: wait-for-chroma
+          image: curlimages/curl:8.5.0
+          command: ["sh", "-c"]
+          args:
+            - >
+              echo "Waiting for Chroma...";
+              until curl -sf http://chroma-svc:8000/api/v2/heartbeat >/dev/null; do
+                sleep 2;
+              done;
+              echo "Chroma is up.";
+
       containers:
         - name: web
-          image: <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/chroma-chat-web:latest
+          image: 084375558336.dkr.ecr.us-east-1.amazonaws.com/chroma-chat-web:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
           env:
             - name: AWS_REGION
               value: us-east-1
+
+            # Chroma (usar el service correcto)
             - name: CHROMA_HOST
-              value: chroma
+              value: chroma-svc
             - name: CHROMA_PORT
               value: "8000"
             - name: CHROMA_COLLECTION
               value: info_ia_generativa
-            # Bedrock models
-            - name: BEDROCK_EMBED_MODEL
-              value: amazon.titan-embed-text-v2:0
-            - name: BEDROCK_CHAT_MODEL
-              value: anthropic.claude-3-5-sonnet-20240620
-            # Flask session key (esto sí es secreto, pero NO es AWS key)
+
+             
+            # Flask session key (secreto local de app)
             - name: FLASK_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: webapp-secrets
                   key: FLASK_SECRET_KEY
+
             # Kubecost
             - name: KUBECOST_BASE
               value: http://kubecost-cost-analyzer.kubecost:9090
             - name: KUBECOST_WINDOW
-              value: today
+              value: "false"
+
           readinessProbe:
             httpGet:
               path: /health
               port: 5000
             initialDelaySeconds: 10
             periodSeconds: 10
+
           livenessProbe:
             httpGet:
               path: /health
               port: 5000
             initialDelaySeconds: 30
             periodSeconds: 20
+
           resources:
             requests:
               cpu: "100m"

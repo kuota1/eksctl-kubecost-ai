@@ -4,6 +4,7 @@ import chromadb
 import boto3
 import requests
 from flask import Flask, render_template, request, session, jsonify
+from kubecost_live import get_kubecost_context
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "cambia_esto")
@@ -19,7 +20,7 @@ collection = chroma_client.get_or_create_collection(name=CHROMA_COLLECTION)
 # --- Bedrock ---
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 BEDROCK_EMBED_MODEL = os.getenv("BEDROCK_EMBED_MODEL", "amazon.titan-embed-text-v2:0")
-BEDROCK_CHAT_MODEL = os.getenv("BEDROCK_CHAT_MODEL", "anthropic.claude-3-5-sonnet-20240620")
+BEDROCK_CHAT_MODEL = os.getenv("BEDROCK_CHAT_MODEL", "anthropic.claude-3-5-sonnet-20240620-v1:0")
 # --- Kubecost ---
 KUBECOST_BASE = os.getenv("KUBECOST_BASE", "http://kubecost-cost-analyzer.kubecost:9090")
 KUBECOST_WINDOW = os.getenv("KUBECOST_WINDOW", "today")
@@ -40,25 +41,26 @@ def embed_query(text: str) -> list[float]:
 
 
 def call_model(prompt: str) -> str:
-    """
-    Implementación compatible con modelos Anthropic en Bedrock.
-    Recomendado: anthropic.claude-3-5-sonnet-20240620 (como en tu script).
-    """
-    body = json.dumps(
-        {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 200,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-    )
-    resp = brt.invoke_model(
+    resp = brt.converse(
         modelId=BEDROCK_CHAT_MODEL,
-        body=body,
-        contentType="application/json",
-        accept="application/json",
+        messages=[{"role": "user", "content": [{"text": prompt}]}],
+        inferenceConfig={"maxTokens": 200, "temperature": 0.2},
     )
-    payload = json.loads(resp["body"].read())
-    return payload["content"][0]["text"]
+
+    # Resp puede traer content como lista de bloques con distintas formas según provider
+    content = resp.get("output", {}).get("message", {}).get("content", []) or []
+
+    # Busca un bloque con 'text'
+    for block in content:
+        if isinstance(block, dict) and "text" in block:
+            return block["text"]
+
+        # fallback si viene como {"type":"text","text":"..."}
+        if isinstance(block, dict) and block.get("type") == "text" and "text" in block:
+            return block["text"]
+
+    # fallback final: stringify por si cambia el formato
+    return json.dumps(content, ensure_ascii=False)
 
 
 @app.get("/health")
@@ -123,17 +125,29 @@ def index():
             docs = results["documents"][0]
 
         context = "\n".join(docs)
+        try:
+            kc_live = get_kubecost_context(pregunta)
+        except Exception as e:
+            kc_live = f"Kubecost live summary unavailable: {e}"
+
+
+        kc_block = f"\n\nLIVE_KUBECOST_DATA:\n{kc_live}\n" if kc_live else ""
+        
 
         prompt = (
-            "Eres un asistente experto en Inteligencia Artificial Generativa.\n"
+            "Eres un asistente experto en FinOps para Kubernetes y Kubecost.\n"
             "Responde con máximo 300 caracteres, siempre en texto plano.\n"
-            "No uses Markdown, listas, ni emojis.\n"
-            "Usa únicamente la información del CONTEXTO.\n"
-            "Si no está en el contexto, responde: 'No tengo información en el contexto para responder eso.'\n\n"
+            "No uses Markdown, ni emojis.\n"
+            "Usa únicamente la información del CONTEXTO y/o LIVE_KUBECOST_DATA.\n"
+            "Si la pregunta es de costos y existe LIVE_KUBECOST_DATA, úsala.\n"
+            "Si no hay información suficiente en CONTEXTO ni LIVE_KUBECOST_DATA, responde: "
+            "'No tengo información en el contexto para responder eso.'\n\n"
+            f"{kc_block}"
             f"CONTEXTO:\n{context}\n\n"
             f"PREGUNTA:\n{pregunta}\n\n"
             "RESPUESTA:"
         )
+
 
         respuesta = (call_model(prompt) or "").strip()
         if len(respuesta) > 300:
