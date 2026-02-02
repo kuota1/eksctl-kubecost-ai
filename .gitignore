@@ -20,3 +20,5 @@ bash.docx
 *.docx
 ~$*.docx
 
+__pycache__/
+*.pyc
