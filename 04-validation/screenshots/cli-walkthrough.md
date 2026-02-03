@@ -15,7 +15,7 @@ Notes
 
 Cluster: eks-kubecost-lab (region: us-east-1)
 
-Nodes ready 
+Nodes ready: 
 
 gp3 set as default
 
